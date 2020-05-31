@@ -50,6 +50,12 @@ def get_adjacency_matrix(labels, n_cluster):
 
 def get_transition_matrix(adjacency_matrix, threshold = 0.0):
     row_sum=adjacency_matrix.sum(axis=1)
+    '''
+    print('row sum')
+    print(row_sum)
+    print('row sum axis')
+    print(row_sum[:,np.newaxis])
+    '''
     transition_matrix = adjacency_matrix/row_sum[:,np.newaxis]
     transition_matrix[transition_matrix <= threshold] = 0
     if np.any(np.isnan(transition_matrix)):
@@ -71,6 +77,7 @@ def get_network(path_to_file, file, cluster_method, n_cluster):
     adj_mat, transition_matrix = get_adjacency_matrix(labels, n_cluster=n_cluster)       
     motif_usage = np.unique(labels, return_counts=True)
     cons = consecutive(motif_usage[0])
+    '''
     if len(cons) != 1:
         usage_list = list(motif_usage[1])
         index = cons[0][-1]+1
@@ -81,6 +88,31 @@ def get_network(path_to_file, file, cluster_method, n_cluster):
         motif_usage = usage
     else:
         motif_usage = motif_usage[1]
+    '''
+    loop_num = 0
+    while len(cons) != 1:
+        usage_list = list(motif_usage[1])
+        usage_index = list(motif_usage[0])
+        if cons[0][0] > 0:
+            index = 0
+        else:
+            index = cons[0][-1]+1
+        usage_list.insert(index,0)
+        usage_index.insert(index,index)   
+        motif_usage = [np.array(usage_index) ,np.array(usage_list)]
+        cons = consecutive(motif_usage[0])
+        loop_num= loop_num + 1
+#        if loop_num > n_cluster:
+#            print('Unexpected error:'+ motif usage)
+#            sys.exit(1)
+        
+        #print(cons)
+        #print(len(cons))
+    else:
+        motif_usage = list(motif_usage[1])
+    while len(motif_usage) < n_cluster:
+        motif_usage = np.append(motif_usage,0)
+    
     
     np.save(path_to_file+'/behavior_quantification/adjacency_matrix.npy', adj_mat)
     np.save(path_to_file+'/behavior_quantification/transition_matrix.npy', transition_matrix)
@@ -115,6 +147,7 @@ def behavior_quantification(config, model_name, cluster_method='kmeans', n_clust
     
 
     for file in files:
+        print('Processing:' + file)
         path_to_file=cfg['project_path']+'results/'+file+'/'+model_name+'/'+cluster_method+'-'+str(n_cluster)
        
         if not os.path.exists(path_to_file+'/behavior_quantification/'):
