@@ -42,10 +42,14 @@ def behavior_segmentation(config, model_name=None, cluster_method='kmeans', n_cl
     
     config_file = Path(config).resolve()
     cfg = read_config(config_file)
-
-    for folders in cfg['video_sets']:        
-        if not os.path.exists(cfg['project_path']+'results/'+folders+'/'+model_name):
-            os.mkdir(cfg['project_path']+'results/'+folders+'/'+model_name)
+    if not os.path.exists(cfg['project_path']+'results'):
+            os.mkdir(cfg['project_path']+'results')
+    
+    for folders in cfg['video_sets']: 
+        if not os.path.exists(cfg['project_path']+'results'+os.sep+folders):
+            os.mkdir(cfg['project_path']+'results'+os.sep +folders)
+        if not os.path.exists(cfg['project_path']+'results'+os.sep+folders+os.sep +model_name):
+            os.mkdir(cfg['project_path']+'results'+os.sep +folders+os.sep +model_name)
         
     files = []
     if cfg['all_data'] == 'No':
@@ -149,7 +153,7 @@ def temporal_quant(cfg, model_name, files, use_gpu):
         z_list.append(z_temp)
     
     z_array= np.concatenate(z_list)
-    z_logger.append(len(z))
+    z_logger.append(len(z_array))
     
     return z_array, z_logger
     
@@ -166,14 +170,28 @@ def cluster_latent_space(cfg, files, z_data, z_logger, cluster_method, n_cluster
             print('Behavior segmentation via GMM.')
             data_labels = gmm_clustering(z_data, n_components=cluster)
             data_labels = np.int64(scipy.signal.medfilt(data_labels, cfg['median_filter']))
+            
+        #save latent vector
+        print("Saving latent vector..." )
+        if not os.path.exists(cfg['project_path']+'results_latent'):
+                os.mkdir(cfg['project_path']+'results_latent')
         
+        np.save(cfg['project_path']+'results_latent'+os.sep+str(cluster)+'_zdata', z_data)
+        np.save(cfg['project_path']+'results_latent'+os.sep+str(cluster)+'_zlogger', z_logger)
+        if cluster_method == 'kmeans':
+            np.save(cfg['project_path']+'results_latent'+os.sep+str(cluster)+'_km_label', data_labels)
+        
+        
+        #
         for idx, file in enumerate(files):
             print("Segmentation for file %s..." %file )
             if not os.path.exists(cfg['project_path']+'results/'+file+'/'+model_name+'/'+cluster_method+'-'+str(cluster)):
                 os.mkdir(cfg['project_path']+'results/'+file+'/'+model_name+'/'+cluster_method+'-'+str(cluster))
         
             save_data = cfg['project_path']+'results/'+file+'/'+model_name+'/'
-            labels = data_labels
+            labels = data_labels[z_logger[idx]:z_logger[idx+1]-1]
+            latent_v = z_data[z_logger[idx]:z_logger[idx+1]-1]
+
                 
             if cluster_method == 'kmeans':
                 np.save(save_data+cluster_method+'-'+str(cluster)+'/'+str(cluster)+'_km_label_'+file, labels)
@@ -184,6 +202,9 @@ def cluster_latent_space(cfg, files, z_data, z_logger, cluster_method, n_cluster
             if cluster_method == 'all':
                 np.save(save_data+cluster_method+'-'+str(cluster)+'/'+str(cluster)+'_km_label_'+file, labels)
                 np.save(save_data+cluster_method+'-'+str(cluster)+'/'+str(cluster)+'_gmm_label_'+file, labels)
+                
+            # store z data
+            np.save(save_data+cluster_method+'-'+str(cluster)+'/'+str(cluster)+'_latent_vector_'+file, latent_v)
     
     
 
